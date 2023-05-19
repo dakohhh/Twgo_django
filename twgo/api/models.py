@@ -79,12 +79,19 @@ class Project(models.Model):
     status = models.CharField(
         max_length=10, choices=STATUS_CHOICES, default='pending')
 
+    def save(self, *args, **kwargs):
+        is_new_project = self._state.adding  # Check if it's a new project
 
-# class Chat(models.Model):
-#     post = models.ForeignKey(Project, on_delete=models.CASCADE)
-#     user = models.ForeignKey(User, on_delete=models.CASCADE)
-#     message = models.TextField()
-#     timestamp = models.DateTimeField(auto_now_add=True)
+        super().save(*args, **kwargs)  # Call the original save method
+
+        if is_new_project:
+            admins = User.objects.filter(
+                is_staff=True)  # Get all admin users
+            for admin in admins:
+                notification = Notifications(
+                    user=admin, message='New project created', details=f'A new project "{self.title}" has been created.')
+                notification.save()
+
 
 class Funds(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
