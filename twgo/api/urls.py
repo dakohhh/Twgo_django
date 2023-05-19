@@ -10,4 +10,5 @@ urlpatterns = [
     path("user/", views.UserApi.as_view(), name="user"),
     path("create-project/", views.ProjectCreateView.as_view(), name="create-project"),
     path('balance/', views.BalanceView.as_view(), name='balance'),
+    path('notifications/', views.NotificationListView.as_view(), name='get_notifications'),
 ]

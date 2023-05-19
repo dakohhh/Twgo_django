@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import views, response, exceptions, permissions, generics, status
 from decimal import Decimal, InvalidOperation
-from .models import Funds, Project
+from .models import *
 from . import serializer as user_serializer
 from . import services, authentication
 
@@ -16,6 +16,11 @@ class RegisterUserApi(views.APIView):
 
         data = serializer.validated_data
         serializer.instance = services.create_user(user_dc=data)
+
+        user = User.objects.get(id=serializer.data['id'])
+        notification = Notifications(
+            user=user, message='Welcome to twgo', details='We are delighted to have you here . . .')
+        notification.save()
 
         return response.Response(data=serializer.data)
 
@@ -162,3 +167,22 @@ class BalanceView(APIView):
         funds.save()
         serializer = user_serializer.FundsSerializer(funds)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class NotificationListView(APIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        user = request.user
+        notifications = Notifications.objects.filter(
+            user=user).order_by('-created_at')
+        data = []
+        if notifications.exists():  # Check if notifications exist
+            for notification in notifications:
+                data.append({
+                    'message': notification.message,
+                    'is_read': notification.is_read,
+                    'created_at': notification.created_at
+                })
+        return JsonResponse(data, safe=False)
