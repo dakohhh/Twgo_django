@@ -16,6 +16,9 @@ class UserDataClass:
     email: str
     password: str = None
     id: int = None
+    phone_number: str = None
+    nationality: str = None
+    gender: str = None
 
     @classmethod
     def from_instance(cls, user: "User") -> "UserDataClass":
@@ -24,12 +27,20 @@ class UserDataClass:
             last_name=user.last_name,
             email=user.email,
             id=user.id,
+            phone_number=user.phone_number,
+            nationality=user.nationality,
+            gender=user.gender,
         )
 
 
 def create_user(user_dc: "UserDataClass") -> "UserDataClass":
     instance = models.User(
-        first_name=user_dc.first_name, last_name=user_dc.last_name, email=user_dc.email
+        first_name=user_dc.first_name,
+        last_name=user_dc.last_name,
+        email=user_dc.email,
+        phone_number=user_dc.phone_number,
+        nationality=user_dc.nationality,
+        gender=user_dc.gender,
     )
     if user_dc.password is not None:
         instance.set_password(user_dc.password)
@@ -41,7 +52,13 @@ def create_user(user_dc: "UserDataClass") -> "UserDataClass":
 
 def create_admin(user_dc: "UserDataClass") -> "UserDataClass":
     instance = models.User(
-        first_name=user_dc.first_name, last_name=user_dc.last_name, email=user_dc.email, is_staff=True
+        first_name=user_dc.first_name,
+        last_name=user_dc.last_name,
+        email=user_dc.email,
+        phone_number=user_dc.phone_number,
+        nationality=user_dc.nationality,
+        gender=user_dc.gender,
+        is_staff=True,
     )
     if user_dc.password is not None:
         instance.set_password(user_dc.password)

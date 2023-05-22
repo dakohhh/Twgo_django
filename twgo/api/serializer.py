@@ -11,18 +11,24 @@ class UserSerializer(serializers.Serializer):
     last_name = serializers.CharField()
     email = serializers.CharField()
     password = serializers.CharField(write_only=True)
+    phone_number = serializers.CharField()
+    nationality = serializers.CharField()
+    gender = serializers.CharField()
 
     def to_internal_value(self, data):
         data = super().to_internal_value(data)
-
         return services.UserDataClass(**data)
+
 
 class ProjectSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source='user.username')
-    admin = serializers.PrimaryKeyRelatedField(queryset=User.objects.all(), required=False)
+    admin = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), required=False)
+
     class Meta:
         model = Project
         fields = '__all__'
+
 
 class FundsSerializer(serializers.ModelSerializer):
     class Meta:

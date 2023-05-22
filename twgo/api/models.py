@@ -9,6 +9,9 @@ class UserManager(auth_models.BaseUserManager):
         last_name: str,
         email: str,
         password: str = None,
+        phone_number: str = None,
+        nationality: str = None,
+        gender: str = None,
         is_staff=False,
         is_superuser=False,
     ) -> "User":
@@ -22,6 +25,9 @@ class UserManager(auth_models.BaseUserManager):
         user = self.model(email=self.normalize_email(email))
         user.first_name = first_name
         user.last_name = last_name
+        user.phone_number = phone_number
+        user.nationality = nationality
+        user.gender = gender
         user.set_password(password)
         user.is_active = True
         user.is_staff = is_staff
@@ -31,13 +37,19 @@ class UserManager(auth_models.BaseUserManager):
         return user
 
     def create_superuser(
-        self, first_name: str, last_name: str, email: str, password: str
+        self, first_name: str, last_name: str, email: str, password: str,
+        phone_number: str = None,
+        nationality: str = None,
+        gender: str = None,
     ) -> "User":
         user = self.create_user(
             first_name=first_name,
             last_name=last_name,
             email=email,
             password=password,
+            phone_number=phone_number,
+            nationality=nationality,
+            gender=gender,
             is_staff=True,
             is_superuser=True,
         )
@@ -52,12 +64,17 @@ class User(auth_models.AbstractUser):
     email = models.EmailField(verbose_name="Email",
                               max_length=255, unique=True)
     password = models.CharField(max_length=255)
+    phone_number = models.CharField(verbose_name="Phone Number", max_length=20)
+    nationality = models.CharField(verbose_name="Nationality", max_length=100)
+    gender = models.CharField(verbose_name="Gender", max_length=10)
+
     username = None
 
     objects = UserManager()
 
     USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = ["first_name", "last_name"]
+    REQUIRED_FIELDS = ["first_name", "last_name",
+                       "phone_number", "nationality", "gender"]
 
 
 class Project(models.Model):
