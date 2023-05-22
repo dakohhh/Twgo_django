@@ -9,20 +9,26 @@ from . import serializer as user_serializer
 from . import services, authentication
 
 
+def index(request):
+    return JsonResponse('Hi, you are welcome to TWGO backend . . .', safe=False)
+
+
 class RegisterUserApi(views.APIView):
     def post(self, request):
         serializer = user_serializer.UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-        serializer.instance = services.create_user(user_dc=data)
+        resp = services.create_user(user_dc=data)
 
-        user = User.objects.get(id=serializer.data['id'])
-        notification = Notifications(
-            user=user, message='Welcome to twgo', details='We are delighted to have you here . . .')
-        notification.save()
+        if resp.get('success'):
+            serializer.instance = resp.get('data')
+            user = User.objects.get(id=serializer.data['id'])
+            notification = Notifications(
+                user=user, message='Welcome to twgo', details='We are delighted to have you here...')
+            notification.save()
 
-        return response.Response(data=serializer.data)
+        return resp
 
 
 class RegisterAdminApi(views.APIView):
@@ -31,9 +37,16 @@ class RegisterAdminApi(views.APIView):
         serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
-        serializer.instance = services.create_admin(user_dc=data)
+        resp = services.create_admin(user_dc=data)
 
-        return response.Response(data=serializer.data)
+        if resp.get('success'):
+            serializer.instance = resp.get('data')
+            user = User.objects.get(id=serializer.data['id'])
+            notification = Notifications(
+                user=user, message='Welcome to twgo dear Admin.', details='We are delighted to have you here...')
+            notification.save()
+
+        return resp
 
 
 class LoginUserApi(views.APIView):
@@ -49,7 +62,7 @@ class LoginUserApi(views.APIView):
         if not user.check_password(raw_password=password):
             raise exceptions.AuthenticationFailed("Invalid Credentials")
 
-        if user.is_staff == False:
+        if user.is_staff == False and user.is_superuser == False:
             token = services.create_token(user_id=user.id)
             resp = response.Response(
                 data={'email': user.email, 'token': token})
@@ -73,7 +86,7 @@ class LoginAdminApi(views.APIView):
         if not user.check_password(raw_password=password):
             raise exceptions.AuthenticationFailed("Invalid Credentials")
 
-        if user.is_staff == True:
+        if user.is_staff == True and user.is_superuser == False:
             token = services.create_token(user_id=user.id)
             resp = response.Response(
                 data={'email': user.email, 'token': token})
