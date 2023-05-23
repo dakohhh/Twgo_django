@@ -7,10 +7,14 @@ from decimal import Decimal, InvalidOperation
 from .models import *
 from . import serializer as user_serializer
 from . import services, authentication
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view
 
 
 def index(request):
-    return JsonResponse('Hi, you are welcome to TWGO backend . . .', safe=False)
+    response = JsonResponse(
+        'Hi, you are welcome to TWGO backend . . .', safe=False)
+    return response
 
 
 class RegisterUserApi(views.APIView):
@@ -65,10 +69,11 @@ class LoginUserApi(views.APIView):
         if user.is_staff == False and user.is_superuser == False:
             token = services.create_token(user_id=user.id)
             resp = response.Response(
-                data={'email': user.email, 'token': token})
+                data={'success': True, 'email': user.email, 'token': token})
             resp.set_cookie(key="jwt", value=token, httponly=True)
         else:
-            resp = response.Response('Invalid Credentials')
+            resp = response.Response(
+                data={'success': False, 'message': 'Invalid Credentials'})
 
         return resp
 
@@ -89,10 +94,11 @@ class LoginAdminApi(views.APIView):
         if user.is_staff == True and user.is_superuser == False:
             token = services.create_token(user_id=user.id)
             resp = response.Response(
-                data={'email': user.email, 'token': token})
+                data={'success': True, 'email': user.email, 'token': token})
             resp.set_cookie(key="jwt", value=token, httponly=True)
         else:
-            resp = response.Response(data={'message': 'User is not admin'})
+            resp = response.Response(
+                data={'success': False, 'message': 'User is not admin'})
 
         return resp
 
@@ -180,6 +186,21 @@ class BalanceView(APIView):
         funds.save()
         serializer = user_serializer.FundsSerializer(funds)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UserInfo(APIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request, *args, **kwargs):
+
+        user = request.user
+        userserializer = user_serializer.UserSerializer(user)
+
+        funds, created = Funds.objects.get_or_create(user=request.user)
+        fundsserializer = user_serializer.FundsSerializer(funds)
+
+        return Response(data={'info': userserializer.data, 'funds': fundsserializer.data}, status=status.HTTP_200_OK)
 
 
 class NotificationListView(APIView):

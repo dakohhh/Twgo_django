@@ -9,7 +9,9 @@ urlpatterns = [
     path("login-admin/", views.LoginAdminApi.as_view(), name="login-admin"),
     path("logout/", views.LogoutApi.as_view(), name="logout"),
     path("user/", views.UserApi.as_view(), name="user"),
+    path('info/', views.UserInfo.as_view(), name='info'),
     path("create-project/", views.ProjectCreateView.as_view(), name="create-project"),
     path('balance/', views.BalanceView.as_view(), name='balance'),
-    path('notifications/', views.NotificationListView.as_view(), name='get_notifications'),
+    path('notifications/', views.NotificationListView.as_view(),
+         name='get_notifications'),
 ]
