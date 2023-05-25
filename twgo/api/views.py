@@ -170,6 +170,32 @@ class ProjectCreateView(generics.CreateAPIView):
         project.save()
 
 
+class UserProjectHistoryView(APIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        projects = Project.objects.filter(user=request.user).order_by('-id')
+        project_list = []
+
+        for project in projects:
+            project_data = {
+                'id': project.id,
+                'title': project.title,
+                'department': project.department,
+                'category': project.category,
+                'budget': project.budget,
+                'service_type': project.service_type,
+                'delivery_date': project.delivery_date,
+                'user': project.user.first_name+' ' + project.user.last_name,
+                'admin': project.admin.first_name + ' ' + project.admin.last_name if project.admin else None,
+                'status': project.status
+            }
+            project_list.append(project_data)
+
+        return JsonResponse(project_list, safe=False)
+
+
 class ProjectListView(View):
     authentication_classes = (authentication.CustomUserAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -187,8 +213,8 @@ class ProjectListView(View):
                 'budget': project.budget,
                 'service_type': project.service_type,
                 'delivery_date': project.delivery_date,
-                'user': project.user.username,
-                'admin': project.admin.username if project.admin else None,
+                'user': project.user.first_name+' ' + project.user.last_name,
+                'admin': project.admin.first_name + ' ' + project.admin.last_name if project.admin else None,
                 'status': project.status
             }
             project_list.append(project_data)
@@ -281,6 +307,17 @@ class BalanceView(APIView):
         funds.save()
         serializer = user_serializer.FundsSerializer(funds)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+class NotificationsView(APIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        user = request.user
+        notifications = Notifications.objects.filter(user=user)
+        serializer = user_serializer.NotificationsSerializer(notifications, many=True)
+        return Response(serializer.data)
 
 
 class UserInfo(APIView):

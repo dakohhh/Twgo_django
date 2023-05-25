@@ -34,3 +34,9 @@ class FundsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Funds
         fields = ('total_balance', 'deposit', 'referral_bonus')
+
+
+class NotificationsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notifications
+        fields = ('id', 'user', 'message', 'details', 'is_read', 'created_at')
