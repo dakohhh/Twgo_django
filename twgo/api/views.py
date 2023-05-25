@@ -2,13 +2,11 @@ from django.http import JsonResponse
 from django.views import View
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework import views, response, exceptions, permissions, generics, status
+from rest_framework import response, exceptions, permissions, generics, status
 from decimal import Decimal, InvalidOperation
 from .models import *
 from . import serializer as user_serializer
 from . import services, authentication
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view
 
 
 def index(request):
@@ -17,7 +15,7 @@ def index(request):
     return response
 
 
-class RegisterUserApi(views.APIView):
+class RegisterUserApi(APIView):
     def post(self, request):
         serializer = user_serializer.UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -35,7 +33,7 @@ class RegisterUserApi(views.APIView):
         return resp
 
 
-class RegisterAdminApi(views.APIView):
+class RegisterAdminApi(APIView):
     def post(self, request):
         serializer = user_serializer.UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -53,7 +51,7 @@ class RegisterAdminApi(views.APIView):
         return resp
 
 
-class LoginUserApi(views.APIView):
+class LoginUserApi(APIView):
     def post(self, request):
         email = request.data["email"]
         password = request.data["password"]
@@ -78,7 +76,7 @@ class LoginUserApi(views.APIView):
         return resp
 
 
-class LoginAdminApi(views.APIView):
+class LoginAdminApi(APIView):
     def post(self, request):
         email = request.data["email"]
         password = request.data["password"]
@@ -103,7 +101,32 @@ class LoginAdminApi(views.APIView):
         return resp
 
 
-class UserApi(views.APIView):
+class LoginSuperAdminApi(APIView):
+    def post(self, request):
+        email = request.data["email"]
+        password = request.data["password"]
+
+        user = services.user_email_selector(email=email)
+
+        if user is None:
+            raise exceptions.AuthenticationFailed("Invalid Credentials")
+
+        if not user.check_password(raw_password=password):
+            raise exceptions.AuthenticationFailed("Invalid Credentials")
+
+        if user.is_staff == True and user.is_superuser == True:
+            token = services.create_token(user_id=user.id)
+            resp = response.Response(
+                data={'success': True, 'email': user.email, 'token': token})
+            resp.set_cookie(key="jwt", value=token, httponly=True)
+        else:
+            resp = response.Response(
+                data={'success': False, 'message': 'User is not superadmin'})
+
+        return resp
+
+
+class UserApi(APIView):
     """
     This endpoint can only be used
     if the user is authenticated
@@ -120,7 +143,7 @@ class UserApi(views.APIView):
         return response.Response(serializer.data)
 
 
-class LogoutApi(views.APIView):
+class LogoutApi(APIView):
     authentication_classes = (authentication.CustomUserAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -145,6 +168,78 @@ class ProjectCreateView(generics.CreateAPIView):
         # Set the initial admin to None
         project.admin = None
         project.save()
+
+
+class ProjectListView(View):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        projects = Project.objects.filter(status='pending')
+        project_list = []
+
+        for project in projects:
+            project_data = {
+                'id': project.id,
+                'title': project.title,
+                'department': project.department,
+                'category': project.category,
+                'budget': project.budget,
+                'service_type': project.service_type,
+                'delivery_date': project.delivery_date,
+                'user': project.user.username,
+                'admin': project.admin.username if project.admin else None,
+                'status': project.status
+            }
+            project_list.append(project_data)
+
+        return JsonResponse(project_list, safe=False)
+
+
+class AcceptProjectView(APIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, project_id):
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({'error': 'Project not found'}, status=404)
+
+        if project.status != 'pending':
+            return JsonResponse({'error': 'Only pending projects can be accepted'}, status=400)
+
+        project.status = 'accepted'
+        project.admin = request.user
+        project.save()
+
+        user = User.objects.get(id=project.user.id)
+
+        notification = Notifications(
+            user=user, message='You project has been accepted', details=f'"{project.title}" has been accepted. Proceed to chat with the admin.')
+        notification.save()
+
+        return JsonResponse({'message': 'Project accepted'}, status=200)
+
+
+class RejectProjectView(APIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request, project_id):
+        try:
+            project = Project.objects.get(id=project_id)
+        except Project.DoesNotExist:
+            return JsonResponse({'error': 'Project not found'}, status=404)
+
+        if project.status != 'rejected':
+            return JsonResponse({'error': 'Project already rejected'}, status=400)
+
+        project.status = 'rejected'
+        project.admin = request.user
+        project.save()
+
+        return JsonResponse({'message': 'Project rejected'}, status=200)
 
 
 class BalanceView(APIView):
