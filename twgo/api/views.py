@@ -163,9 +163,6 @@ class ProjectCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         project = serializer.save(user=self.request.user, status='pending')
-        # Perform additional actions here, such as sending notifications to admins
-
-        # Set the initial admin to None
         project.admin = None
         project.save()
 
@@ -214,6 +211,7 @@ class ProjectListView(View):
                 'service_type': project.service_type,
                 'delivery_date': project.delivery_date,
                 'user': project.user.first_name+' ' + project.user.last_name,
+                'user_id': project.user.id,
                 'admin': project.admin.first_name + ' ' + project.admin.last_name if project.admin else None,
                 'status': project.status
             }
@@ -307,7 +305,7 @@ class BalanceView(APIView):
         funds.save()
         serializer = user_serializer.FundsSerializer(funds)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    
+
 
 class NotificationsView(APIView):
     authentication_classes = (authentication.CustomUserAuthentication,)
@@ -316,7 +314,8 @@ class NotificationsView(APIView):
     def get(self, request):
         user = request.user
         notifications = Notifications.objects.filter(user=user)
-        serializer = user_serializer.NotificationsSerializer(notifications, many=True)
+        serializer = user_serializer.NotificationsSerializer(
+            notifications, many=True)
         return Response(serializer.data)
 
 
@@ -352,3 +351,44 @@ class NotificationListView(APIView):
                     'created_at': notification.created_at
                 })
         return JsonResponse(data, safe=False)
+
+
+class ConversationCreateView(generics.CreateAPIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    queryset = Conversation.objects.all()
+    serializer_class = user_serializer.ConversationSerializer
+
+
+class MessageCreateView(generics.CreateAPIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    serializer_class = user_serializer.MessageSerializer
+
+    def perform_create(self, serializer):
+        serializer.save(sender=self.request.user)
+
+
+class MessageListView(generics.ListAPIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    serializer_class = user_serializer.MessageSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        conversation_id = self.kwargs['conversation_id']
+        return Message.objects.filter(conversation_id=conversation_id, sender=user)
+
+
+class ConversationListView(generics.ListAPIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    serializer_class = user_serializer.ConversationSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        return Conversation.objects.filter(participants=user)

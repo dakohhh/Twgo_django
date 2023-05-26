@@ -40,3 +40,24 @@ class NotificationsSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notifications
         fields = ('id', 'user', 'message', 'details', 'is_read', 'created_at')
+
+
+class ConversationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Conversation
+        fields = '__all__'
+
+
+class MessageSerializer(serializers.ModelSerializer):
+    conversation_id = serializers.IntegerField(write_only=True)
+
+    class Meta:
+        model = Message
+        fields = ['sender', 'conversation_id', 'content', 'created_at']
+        read_only_fields = ['sender', 'created_at']
+
+    def create(self, validated_data):
+        conversation_id = validated_data.pop('conversation_id')
+        message = Message.objects.create(
+            conversation_id=conversation_id, **validated_data)
+        return message

@@ -24,4 +24,12 @@ urlpatterns = [
     path('balance/', BalanceView.as_view(), name='balance'),
     path('notifications/', NotificationListView.as_view(),
          name='get_notifications'),
+    path('conversations/create/', ConversationCreateView.as_view(),
+         name='create_conversation'),
+    path('conversations/send-message/',
+         MessageCreateView.as_view(), name='send-message'),
+    path('conversations/<int:conversation_id>/messages/',
+         MessageListView.as_view(), name='message-list'),
+    path('conversations/list/',
+         ConversationListView.as_view(), name='message-list'),
 ]

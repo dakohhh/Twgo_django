@@ -128,3 +128,24 @@ class Notifications(models.Model):
 
     def __str__(self):
         return self.message
+
+
+class Conversation(models.Model):
+    participants = models.ManyToManyField(User, related_name='conversations')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        participant_names = ', '.join(
+            [str(participant) for participant in self.participants.all()])
+        return f"Conversation with {participant_names}"
+
+
+class Message(models.Model):
+    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.content
+
