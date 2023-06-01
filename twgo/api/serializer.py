@@ -43,9 +43,35 @@ class NotificationsSerializer(serializers.ModelSerializer):
 
 
 class ConversationSerializer(serializers.ModelSerializer):
+    participants = serializers.SerializerMethodField()
+
+    def get_participants(self, conversation):
+        participants_data = []
+        participants = conversation.participants.all()
+
+        for participant in participants:
+            participant_data = {
+                'id': participant.id,
+                'name': f"{participant.first_name} {participant.last_name}"
+            }
+            participants_data.append(participant_data)
+
+        return participants_data
+
+    def create(self, validated_data):
+        participants_data = self.initial_data.get('participants', [])
+        conversation = Conversation.objects.create()
+
+        for participant_data in participants_data:
+            participant_id = participant_data.get('id')
+            conversation.participants.add(participant_id)
+
+        return conversation
+
     class Meta:
         model = Conversation
-        fields = '__all__'
+        fields = ['id', 'created_at', 'participants']
+
 
 
 class MessageSerializer(serializers.ModelSerializer):

@@ -1,5 +1,6 @@
 from django.http import JsonResponse
 from django.views import View
+from django.db.models import F
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework import response, exceptions, permissions, generics, status
@@ -243,7 +244,7 @@ class AcceptProjectView(APIView):
             user=user, message='You project has been accepted', details=f'"{project.title}" has been accepted. Proceed to chat with the admin.')
         notification.save()
 
-        return JsonResponse({'message': 'Project accepted'}, status=200)
+        return JsonResponse({'message': 'Project accepted', 'user_id': project.user.id}, status=200)
 
 
 class RejectProjectView(APIView):
@@ -340,17 +341,10 @@ class NotificationListView(APIView):
 
     def get(self, request):
         user = request.user
-        notifications = Notifications.objects.filter(
-            user=user).order_by('-created_at')
-        data = []
-        if notifications.exists():  # Check if notifications exist
-            for notification in notifications:
-                data.append({
-                    'message': notification.message,
-                    'is_read': notification.is_read,
-                    'created_at': notification.created_at
-                })
-        return JsonResponse(data, safe=False)
+        notifications = Notifications.objects.filter(user=user).order_by('-created_at')
+        notifications = notifications.values('message', 'is_read', 'created_at')
+
+        return JsonResponse(list(notifications), safe=False)
 
 
 class ConversationCreateView(generics.CreateAPIView):
@@ -386,9 +380,8 @@ class MessageListView(generics.ListAPIView):
 class ConversationListView(generics.ListAPIView):
     authentication_classes = (authentication.CustomUserAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-
     serializer_class = user_serializer.ConversationSerializer
 
     def get_queryset(self):
         user = self.request.user
-        return Conversation.objects.filter(participants=user)
+        return Conversation.objects.filter(participants=user).order_by(F('id').desc())
