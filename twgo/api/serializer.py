@@ -43,6 +43,8 @@ class NotificationsSerializer(serializers.ModelSerializer):
 
 
 class ConversationSerializer(serializers.ModelSerializer):
+    title = serializers.CharField(
+        read_only=True, default="Project Related Chat")
     participants = serializers.SerializerMethodField()
 
     def get_participants(self, conversation):
@@ -68,10 +70,14 @@ class ConversationSerializer(serializers.ModelSerializer):
 
         return conversation
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['title'] = instance.title
+        return representation
+
     class Meta:
         model = Conversation
-        fields = ['id', 'created_at', 'participants']
-
+        fields = ['id', 'title', 'created_at', 'participants']
 
 
 class MessageSerializer(serializers.ModelSerializer):

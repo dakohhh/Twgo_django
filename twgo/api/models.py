@@ -131,6 +131,7 @@ class Notifications(models.Model):
 
 
 class Conversation(models.Model):
+    title = models.CharField(max_length=100)
     participants = models.ManyToManyField(User, related_name='conversations')
     created_at = models.DateTimeField(auto_now_add=True)
 
