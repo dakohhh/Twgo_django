@@ -46,6 +46,8 @@ class ConversationSerializer(serializers.ModelSerializer):
     title = serializers.CharField(
         read_only=True, default="Project Related Chat")
     participants = serializers.SerializerMethodField()
+    latest_message = serializers.SerializerMethodField()
+    unread_messages_count = serializers.SerializerMethodField()
 
     def get_participants(self, conversation):
         participants_data = []
@@ -59,6 +61,22 @@ class ConversationSerializer(serializers.ModelSerializer):
             participants_data.append(participant_data)
 
         return participants_data
+
+    def get_latest_message(self, conversation):
+        if conversation.latest_message:
+            return {
+                'id': conversation.latest_message.id,
+                'content': conversation.latest_message.content,
+                'sender': conversation.latest_message.sender.id,
+                'sender_name': f"{conversation.latest_message.sender.first_name} {conversation.latest_message.sender.last_name}",
+                'created_at': conversation.latest_message.created_at
+            }
+        return None
+
+    def get_unread_messages_count(self, conversation):
+        user = self.context['request'].user
+        return conversation.unread_messages.filter(user=user).count()
+
 
     def create(self, validated_data):
         participants_data = self.initial_data.get('participants', [])
@@ -77,7 +95,8 @@ class ConversationSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Conversation
-        fields = ['id', 'title', 'created_at', 'participants']
+        fields = ['id', 'title', 'created_at', 'participants',
+                  'latest_message', 'unread_messages_count']
 
 
 class MessageSerializer(serializers.ModelSerializer):

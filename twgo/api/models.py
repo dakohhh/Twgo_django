@@ -1,4 +1,7 @@
+from django.dispatch import receiver
+from django.db.models.signals import post_save
 from django.db import models
+from django.conf import settings
 from django.contrib.auth import models as auth_models
 
 
@@ -131,21 +134,68 @@ class Notifications(models.Model):
 
 
 class Conversation(models.Model):
-    title = models.CharField(max_length=100)
-    participants = models.ManyToManyField(User, related_name='conversations')
+    title = models.CharField(max_length=100, default='Project Related Chats')
+    participants = models.ManyToManyField(
+        settings.AUTH_USER_MODEL, related_name='conversations')
     created_at = models.DateTimeField(auto_now_add=True)
+    latest_message = models.ForeignKey(
+        'api.Message', on_delete=models.SET_NULL, null=True, blank=True, related_name='conversation_latest')
 
     def __str__(self):
-        participant_names = ', '.join(
-            [str(participant) for participant in self.participants.all()])
+        participant_names = ', '.join(str(participant)
+                                      for participant in self.participants.all())
         return f"Conversation with {participant_names}"
+
+    def unread_messages_count(self, user):
+        return self.message_set.exclude(sender=user).count()
 
 
 class Message(models.Model):
-    sender = models.ForeignKey(User, on_delete=models.CASCADE)
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE)
     content = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.content
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        self.conversation.latest_message = self
+        self.conversation.save()
+
+
+@receiver(post_save, sender=Message)
+def update_unread_messages_count(sender, instance, created, **kwargs):
+    if created:
+        conversation = instance.conversation
+        for participant in conversation.participants.all():
+            if participant != instance.sender:
+                unread_message, _ = UnreadMessage.objects.get_or_create(
+                    user=participant, conversation=conversation)
+                unread_message.message = instance
+                unread_message.save()
+    else:
+        UnreadMessage.objects.filter(
+            conversation=instance.conversation, message=instance
+        ).delete()
+
+
+@receiver(post_save, sender=Message)
+def update_latest_message(sender, instance, created, **kwargs):
+    if created:
+        conversation = instance.conversation
+        conversation.latest_message = instance
+        conversation.save()
+
+
+class UnreadMessage(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='unread_messages')
+    conversation = models.ForeignKey(
+        Conversation, on_delete=models.CASCADE, related_name='unread_messages')
+    message = models.ForeignKey(Message, on_delete=models.CASCADE, null=True)
+
+    def __str__(self):
+        return f"Unread message for {self.user} in conversation {self.conversation}"

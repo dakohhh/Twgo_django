@@ -194,6 +194,32 @@ class UserProjectHistoryView(APIView):
         return JsonResponse(project_list, safe=False)
 
 
+class AdminProjectHistoryView(APIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request):
+        projects = Project.objects.filter(admin=request.user).order_by('-id')
+        project_list = []
+
+        for project in projects:
+            project_data = {
+                'id': project.id,
+                'title': project.title,
+                'department': project.department,
+                'category': project.category,
+                'budget': project.budget,
+                'service_type': project.service_type,
+                'delivery_date': project.delivery_date,
+                'user': project.user.first_name+' ' + project.user.last_name,
+                'admin': project.admin.first_name + ' ' + project.admin.last_name if project.admin else None,
+                'status': project.status
+            }
+            project_list.append(project_data)
+
+        return JsonResponse(project_list, safe=False)
+
+
 class ProjectListView(View):
     authentication_classes = (authentication.CustomUserAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
@@ -363,17 +389,15 @@ class SupportConversationView(generics.CreateAPIView):
 
     def create(self, request, *args, **kwargs):
         current_user = request.user
-        superusers = User.objects.filter(is_superuser=True)
 
-        # Check if conversation already exists with the given participants
+        # Check if conversation already exists with the title 'Support' and current user as a participant
         conversation = Conversation.objects.filter(
-            participants=current_user).filter(participants__in=superusers).first()
+            title='Support', participants=current_user).first()
 
         if not conversation:
             # Create a new conversation if it doesn't exist
-            conversation = Conversation.objects.create(title="Support")
+            conversation = Conversation.objects.create(title='Support')
             conversation.participants.add(current_user)
-            conversation.participants.add(*superusers)
 
         return Response({'conversation_id': conversation.id}, status=status.HTTP_200_OK)
 
@@ -388,7 +412,7 @@ class GetWorkConversationView(generics.CreateAPIView):
 
         # Check if conversation already exists with the given participants
         conversation = Conversation.objects.filter(
-            participants=current_user).filter(participants__in=superusers).first()
+            title='Get Work', participants=current_user).first()
 
         if not conversation:
             # Create a new conversation if it doesn't exist
@@ -409,7 +433,7 @@ class EduConsultConversationView(generics.CreateAPIView):
 
         # Check if conversation already exists with the given participants
         conversation = Conversation.objects.filter(
-            participants=current_user).filter(participants__in=superusers).first()
+            title='Edu Consult', participants=current_user).first()
 
         if not conversation:
             # Create a new conversation if it doesn't exist
@@ -430,11 +454,12 @@ class AccomondationRequestConversationView(generics.CreateAPIView):
 
         # Check if conversation already exists with the given participants
         conversation = Conversation.objects.filter(
-            participants=current_user).filter(participants__in=superusers).first()
+            title='Accomondation Request', participants=current_user).first()
 
         if not conversation:
             # Create a new conversation if it doesn't exist
-            conversation = Conversation.objects.create(title="Accomondation Request")
+            conversation = Conversation.objects.create(
+                title="Accomondation Request")
             conversation.participants.add(current_user)
             conversation.participants.add(*superusers)
 
@@ -454,12 +479,17 @@ class MessageCreateView(generics.CreateAPIView):
 class MessageListView(generics.ListAPIView):
     authentication_classes = (authentication.CustomUserAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-
     serializer_class = user_serializer.MessageSerializer
 
     def get_queryset(self):
         user = self.request.user
         conversation_id = self.kwargs['conversation_id']
+
+        # Clear unread messages for the current user in the conversation
+        conversation = Conversation.objects.get(id=conversation_id)
+        UnreadMessage.objects.filter(
+            user=user, conversation=conversation).delete()
+
         return Message.objects.filter(conversation_id=conversation_id)
 
 
