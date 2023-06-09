@@ -1,3 +1,4 @@
+from firebase_admin import auth
 from django.http import JsonResponse
 from django.views import View
 from django.db.models import F
@@ -8,6 +9,8 @@ from decimal import Decimal, InvalidOperation
 from .models import *
 from . import serializer as user_serializer
 from . import services, authentication
+
+from firebase_admin import messaging
 
 
 def index(request):
@@ -67,6 +70,8 @@ class LoginUserApi(APIView):
 
         if user.is_staff == False and user.is_superuser == False:
             token = services.create_token(user_id=user.id)
+            user.firebasetoken = request.data["firebasetoken"]
+            user.save()
             resp = response.Response(
                 data={'success': True, 'email': user.email, 'token': token})
             resp.set_cookie(key="jwt", value=token, httponly=True)
@@ -469,11 +474,39 @@ class AccomondationRequestConversationView(generics.CreateAPIView):
 class MessageCreateView(generics.CreateAPIView):
     authentication_classes = (authentication.CustomUserAuthentication,)
     permission_classes = (permissions.IsAuthenticated,)
-
     serializer_class = user_serializer.MessageSerializer
 
     def perform_create(self, serializer):
         serializer.save(sender=self.request.user)
+
+        # Retrieve the Firebase token for the recipient user
+        conversation_id = serializer.validated_data['conversation_id']
+        recipient_conversation = Conversation.objects.get(id=conversation_id)
+        recipient = recipient_conversation.get_other_participant(
+            self.request.user)
+        recipient_uid = recipient.id  # Assuming the recipient user has a "uid" field
+        user = auth.get_user_by_email(recipient_uid)
+        # Assuming the recipient user has a "messaging_token" field for the Firebase token
+        token = user.tokens.get('firebasetoken')
+
+        # Send FCM notification to the recipient
+        send_fcm_notification(token, recipient.first_name,
+                              serializer.validated_data['content'])
+
+
+def send_fcm_notification(token, title, body):
+    # Construct the message payload
+    message = messaging.Message(
+        token=token,
+        notification=messaging.Notification(
+            title=title,
+            body=body,
+        ),
+    )
+
+    # Send the message to the FCM server
+    response = messaging.send(message)
+    print('Successfully sent FCM notification:', response)
 
 
 class MessageListView(generics.ListAPIView):

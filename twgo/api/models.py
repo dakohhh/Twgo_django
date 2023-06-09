@@ -64,6 +64,8 @@ class UserManager(auth_models.BaseUserManager):
 class User(auth_models.AbstractUser):
     first_name = models.CharField(verbose_name="First Name", max_length=255)
     last_name = models.CharField(verbose_name="Last Name", max_length=255)
+    firebasetoken = models.CharField(
+        verbose_name="firebasetoken", max_length=255, default="O")
     email = models.EmailField(verbose_name="Email",
                               max_length=255, unique=True)
     password = models.CharField(max_length=255)
