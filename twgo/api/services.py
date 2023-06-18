@@ -55,7 +55,7 @@ class UserDataEncoder(json.JSONEncoder):
             return obj.to_dict()
         return super().default(obj)
 
-
+2
 def create_user(user_dc: UserDataClass) -> "UserDataClass":
     try:
         instance = models.User(

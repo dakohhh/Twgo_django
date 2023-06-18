@@ -112,3 +112,12 @@ class MessageSerializer(serializers.ModelSerializer):
         message = Message.objects.create(
             conversation_id=conversation_id, **validated_data)
         return message
+
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    model = User
+
+
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)

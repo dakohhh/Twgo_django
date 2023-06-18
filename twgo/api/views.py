@@ -2,8 +2,11 @@ from firebase_admin import auth
 from django.http import JsonResponse
 from django.views import View
 from django.db.models import F
+from rest_framework import status
 from rest_framework.response import Response
+from rest_framework.request import Request
 from rest_framework.views import APIView
+
 from rest_framework import response, exceptions, permissions, generics, status
 from decimal import Decimal, InvalidOperation
 from .models import *
@@ -13,6 +16,8 @@ from . import services, authentication
 from firebase_admin import messaging
 
 
+from rest_framework.permissions import IsAuthenticated 
+
 def index(request):
     response = JsonResponse(
         'Hi, you are welcome to TWGO backend . . .', safe=False)
@@ -20,7 +25,7 @@ def index(request):
 
 
 class RegisterUserApi(APIView):
-    def post(self, request):
+    def post(self, request:Request):
         serializer = user_serializer.UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -534,3 +539,41 @@ class ConversationListView(generics.ListAPIView):
     def get_queryset(self):
         user = self.request.user
         return Conversation.objects.filter(participants=user).order_by(F('id').desc())
+
+
+
+
+
+  
+
+class ChangePasswordView(generics.UpdateAPIView):
+  
+    serializer_class = user_serializer.ChangePasswordSerializer
+    model = User
+    permission_classes = (IsAuthenticated,)
+
+    def get_object(self, queryset=None):
+        obj = self.request.user
+        return obj
+
+    def update(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+
+            if not self.object.check_password(serializer.data.get("old_password")):
+                return Response({"old_password": ["Wrong password."]}, status=status.HTTP_400_BAD_REQUEST)
+            
+            self.object.set_password(serializer.data.get("new_password"))
+            self.object.save()
+            response = {
+                'status': 'success',
+                'code': status.HTTP_200_OK,
+                'message': 'Password updated successfully',
+                'data': []
+            }
+
+            return Response(response)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

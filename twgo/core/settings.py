@@ -9,11 +9,13 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
-
-from pathlib import Path
-
+import os
 import firebase_admin
+from pathlib import Path
+from dotenv import load_dotenv
 from firebase_admin import credentials
+
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,12 +27,15 @@ firebase_admin.initialize_app(cred)
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-8--9iit%s-3cg!(clq(#5!r35x#*+(raxffb!%8__4(t56^7_w'
-JWT_SECRET = "vincentjwtkey"
+
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+
+JWT_SECRET = os.getenv("TWGO_JWT_SECRET")
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['twgoapp.com', 'localhost']
+ALLOWED_HOSTS = ['twgoapp.com', 'localhost', "127.0.0.1"]
 
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
@@ -45,6 +50,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
+    'drf_yasg',
     'api.apps.ApiConfig',
     'corsheaders',
 ]
