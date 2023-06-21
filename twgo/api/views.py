@@ -1,3 +1,5 @@
+import json
+import requests
 from firebase_admin import auth
 from django.http import JsonResponse
 from django.views import View
@@ -543,13 +545,11 @@ class ConversationListView(generics.ListAPIView):
 
 
 
-
-  
-
 class ChangePasswordView(generics.UpdateAPIView):
   
     serializer_class = user_serializer.ChangePasswordSerializer
     model = User
+    authentication_classes = (authentication.CustomUserAuthentication,)
     permission_classes = (IsAuthenticated,)
 
     def get_object(self, queryset=None):
@@ -577,3 +577,164 @@ class ChangePasswordView(generics.UpdateAPIView):
             return Response(response)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+from .utils import fetchone, generate_hex
+import random
+from django.contrib.auth.hashers import make_password, check_password
+
+class RequestOTPPasswordResetView(APIView):
+
+    def post(self, request:Request, *args, **kwargs):
+
+        serializer = user_serializer.OTPRequestSerializer(data=request.data)
+
+        if serializer.is_valid():
+
+            print(serializer.data.get("email"))
+
+            email =  serializer.data.get("email")
+
+            user = fetchone(User, email=email)
+
+            if user == None:
+                return Response({'message': 'User not found'}, status=400)
+
+
+            otp = random.randint(1000, 9999)
+
+            key=generate_hex(15)
+            
+            
+            if OTP.objects.filter(user=user).exists():
+
+                otp_klass = fetchone(OTP, user=user)
+
+                otp_klass.otp = make_password(str(otp))
+
+                otp_klass.key = key
+
+                otp_klass.save()
+
+            else:
+
+                otp_klass = OTP(user=user, otp=make_password(str(otp)), key=key)
+
+                otp_klass.save()
+            
+            send_mail(
+                'Password Reset OTP For Twgo User',
+                f'Your OTP: {otp}',
+                settings.EMAIL_HOST,
+                [email],
+                fail_silently=False,
+            )
+
+            return Response({'message': 'OTP sent'})
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+
+
+class ValidateOTP(APIView):
+
+    def post(self, request:Request, *args, **kwargs):
+
+        serializer = user_serializer.ValidateOTPSerializer(data=request.data)
+
+        if serializer.is_valid():
+
+            email = serializer.data.get("email")
+
+            otp_klass = fetchone(OTP, user_id=fetchone(User, email=email))
+
+            if otp_klass is None:
+                return Response({"message": "User did not request otp"}, status=400)
+
+            if not check_password(serializer.data.get("otp"), otp_klass.otp):
+
+                return Response({"message":"Invalid OTP"}, status=400)
+
+
+            return Response({"message": "OTP Verified", "data": otp_klass.key})
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+class UpdatePasswordFromReset(APIView):
+    def put(self, request:Request, *args, **kwargs):
+        serializer = user_serializer.UpadatePasswordFromResetSerializer(data=request.data)
+
+        if serializer.is_valid():
+            otp_klass = fetchone(OTP, key=serializer.data.get("token"))
+
+            if otp_klass is None:
+                return Response({"message": "Invalid Token"}, status=400)
+
+            user:User = otp_klass.user
+
+            user.set_password(serializer.data.get("new_password"))
+
+            user.save()
+
+            otp_klass.delete()
+
+            return Response({"message": "Password Changed"})
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+class PaymentWithCard(APIView):
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def post(self, request:Request, *args, **kwargs):
+
+
+        serializer = user_serializer.PaymentWithCardSerializer(data=request.data)
+
+        if serializer.is_valid():
+
+            url = "https://api-twgo.onrender.com/payment"
+
+            payload = json.dumps({
+            "card_number": serializer.data.get("card_number"),
+            "card_exp_month": serializer.data.get("card_exp_month"),
+            "card_exp_year": serializer.data.get("card_exp_year"),
+            "card_cvc": serializer.data.get("card_cvc"),
+            "currency": serializer.data.get("currency"),
+            "amount": serializer.data.get("amount")
+            })
+            headers = {
+            'Content-Type': 'application/json',
+            }
+
+            print(payload)
+
+
+            try:
+
+                response = requests.request("POST", url, headers=headers, data=payload)
+
+                if response.status_code == status.HTTP_400_BAD_REQUEST:
+                    return Response({"message" : dict(response.json()).get("msg")}, status=status.HTTP_400_BAD_REQUEST)
+
+                elif response.status_code == status.HTTP_200_OK:
+                    return Response({"message": dict(response.json()).get("msg")}, status=status.HTTP_200_OK)
+                
+                else:
+                    return Response({"message": "Something went wrong with payment, please try again"}, status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
+            except Exception as e:
+                return Response({"message" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        

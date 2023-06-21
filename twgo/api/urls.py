@@ -1,5 +1,5 @@
 from .views import *
-from django.urls import path
+from django.urls import include, path
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
@@ -18,6 +18,8 @@ schema_view = get_schema_view(
 
     permission_classes=(permissions.AllowAny,),
 )
+
+
 
 
 urlpatterns = [
@@ -65,4 +67,17 @@ urlpatterns = [
      path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 
      path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+
+     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
+
+     path('request-otp/', RequestOTPPasswordResetView.as_view(), name='request-otp'),
+
+     path('validate-otp/', ValidateOTP.as_view(), name='validate-otp'),
+
+
+     path('password-reset/', UpdatePasswordFromReset.as_view(), name='password-reset'),
+
+     path("pay-with-card/", PaymentWithCard.as_view(), name="pay-with-card")
+
+
 ]

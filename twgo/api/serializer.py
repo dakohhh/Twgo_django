@@ -118,6 +118,35 @@ class MessageSerializer(serializers.ModelSerializer):
 class ChangePasswordSerializer(serializers.Serializer):
     model = User
 
-
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
+
+
+
+class OTPRequestSerializer(serializers.Serializer):
+
+    email = serializers.EmailField(required=True)
+
+
+class ValidateOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    otp = serializers.CharField(required=True)
+
+
+class UpadatePasswordFromResetSerializer(serializers.Serializer):
+
+    token = serializers.CharField(required=True)
+
+    new_password = serializers.CharField(required=True)
+
+    
+
+
+class PaymentWithCardSerializer(serializers.Serializer):
+
+    card_number = serializers.IntegerField(required=True)
+    card_exp_month = serializers.IntegerField(required=True)
+    card_exp_year = serializers.IntegerField(required=True)
+    card_cvc = serializers.IntegerField(required=True)
+    currency = serializers.CharField(default="usd")
+    amount = serializers.IntegerField(required=True)

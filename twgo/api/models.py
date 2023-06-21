@@ -1,8 +1,17 @@
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.db import models
+from django.template.loader import render_to_string
 from django.conf import settings
 from django.contrib.auth import models as auth_models
+from django_rest_passwordreset.signals import reset_password_token_created
+from django.core.mail import send_mail
+from django.core.mail import EmailMessage
+from django.urls import reverse
+
+from rest_framework.request import Request
+
+
 
 
 class UserManager(auth_models.BaseUserManager):
@@ -201,3 +210,38 @@ class UnreadMessage(models.Model):
 
     def __str__(self):
         return f"Unread message for {self.user} in conversation {self.conversation}"
+
+
+
+
+class OTP(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_otp")
+
+    otp = models.CharField(max_length=200)
+
+    key = models.CharField(max_length=200)
+
+
+
+
+@receiver(reset_password_token_created)
+def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
+
+    _request_class:Request = instance.request
+
+    base_url = _request_class.build_absolute_uri("/")[:-1]
+
+
+    print()
+
+
+    email_plaintext_message = f"{base_url}{reverse('password_reset:reset-password-confirm')}?token={reset_password_token.key}"
+
+    print(email_plaintext_message)
+
+    html = render_to_string("mail/password_request.html", {
+        "link" : email_plaintext_message
+    })
+
+    send_mail("Password Reset For Twgo User", email_plaintext_message, settings.DEFAULT_FROM_EMAIL, [reset_password_token.user.email], fail_silently=False, html_message=html)
+
