@@ -1,14 +1,14 @@
-import uuid
+import requests
 import secrets
 
 from typing import Type, Union
 from django.db.models import Model
-from .models import OTP, User
+from .models import OTP, User, Funds
 
 
 
 
-def fetchone(klass:Type[Union[Model, User, OTP]], *args, **kwargs)-> Union[User, OTP, None]:
+def fetchone(klass:Type[Union[Model, User, OTP, Funds]], *args, **kwargs) -> Union[User, OTP, Funds, None]:
     try:
         return klass.objects.get(*args, **kwargs)
     except klass.DoesNotExist:
@@ -20,7 +20,22 @@ def fetchone(klass:Type[Union[Model, User, OTP]], *args, **kwargs)-> Union[User,
 
 
 
-def generate_hex(length:int=15):
+def generate_hex(length:int=15) -> str:
     random_hex = secrets.token_hex(length)
 
     return random_hex
+
+
+
+def get_conversion_rate(base_currency, target_currency) -> float:
+    # Make a request to the currency exchange rate API
+    api_url = f"https://api.exchangerate-api.com/v4/latest/{base_currency}"
+    response = requests.get(api_url)
+    
+    if response.status_code == 200:
+        data = response.json()
+        rates = data.get("rates")
+        conversion_rate = rates.get(target_currency)
+        return conversion_rate
+    
+    return None

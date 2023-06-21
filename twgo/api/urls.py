@@ -77,7 +77,9 @@ urlpatterns = [
 
      path('password-reset/', UpdatePasswordFromReset.as_view(), name='password-reset'),
 
-     path("pay-with-card/", PaymentWithCard.as_view(), name="pay-with-card")
+     path("pay-with-card/", PaymentWithCard.as_view(), name="pay-with-card"),
+
+     path("payment-webhook/", PaymentWebHook.as_view(), name="payment-webhook")
 
 
 ]

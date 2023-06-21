@@ -1,3 +1,4 @@
+import os
 import json
 import requests
 from firebase_admin import auth
@@ -16,9 +17,13 @@ from . import serializer as user_serializer
 from . import services, authentication
 
 from firebase_admin import messaging
-
-
 from rest_framework.permissions import IsAuthenticated 
+from dotenv import load_dotenv
+
+load_dotenv()
+
+
+
 
 def index(request):
     response = JsonResponse(
@@ -688,6 +693,12 @@ class UpdatePasswordFromReset(APIView):
 
 
 
+import stripe
+from django.views.decorators.csrf import csrf_exempt
+from .utils import get_conversion_rate
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+
+
 
 
 class PaymentWithCard(APIView):
@@ -700,41 +711,160 @@ class PaymentWithCard(APIView):
         serializer = user_serializer.PaymentWithCardSerializer(data=request.data)
 
         if serializer.is_valid():
-
-            url = "https://api-twgo.onrender.com/payment"
-
-            payload = json.dumps({
-            "card_number": serializer.data.get("card_number"),
-            "card_exp_month": serializer.data.get("card_exp_month"),
-            "card_exp_year": serializer.data.get("card_exp_year"),
-            "card_cvc": serializer.data.get("card_cvc"),
-            "currency": serializer.data.get("currency"),
-            "amount": serializer.data.get("amount")
-            })
-            headers = {
-            'Content-Type': 'application/json',
-            }
-
-            print(payload)
-
-
             try:
 
-                response = requests.request("POST", url, headers=headers, data=payload)
+                amount = int(serializer.data.get("amount") * 100)
 
-                if response.status_code == status.HTTP_400_BAD_REQUEST:
-                    return Response({"message" : dict(response.json()).get("msg")}, status=status.HTTP_400_BAD_REQUEST)
+                card_number = str(serializer.data.get("card_number"))
 
-                elif response.status_code == status.HTTP_200_OK:
-                    return Response({"message": dict(response.json()).get("msg")}, status=status.HTTP_200_OK)
-                
-                else:
-                    return Response({"message": "Something went wrong with payment, please try again"}, status.HTTP_500_INTERNAL_SERVER_ERROR)
+                card_exp_month = str(serializer.data.get("card_exp_month"))
+
+                card_exp_year = str(serializer.data.get("card_exp_year"))
+
+                card_cvc = str(serializer.data.get("card_cvc"))
+
+                currency = str(serializer.data.get("currency"))
+
+                email = str(request.user.email)
+
+
+                payment_method = stripe.PaymentMethod.create(
+                    type='card',
+                    card={
+                        'number': card_number,
+                        'exp_month': card_exp_month,
+                        'exp_year': card_exp_year,
+                        'cvc': card_cvc
+                    }
+                )
+
+                customer = stripe.Customer.create(email=email)
+
+
+                stripe.PaymentMethod.attach(payment_method.id, customer=customer.id)
+
+
+                stripe.Customer.modify(
+                    customer.id,
+                    invoice_settings={
+                        'default_payment_method': payment_method.id
+                    }
+                )
+
+                customer.save()
+
+
+                payment_intent = stripe.PaymentIntent.create(
+                    amount= amount,
+                    currency=currency,
+                    payment_method_types=['card'],
+                    payment_method=payment_method.id,
+                    customer=customer.id
+                )
+
+                payment_intent.confirm()
+
+
+                return Response({"message" : "Payment successfull", "data": payment_intent}, status=status.HTTP_200_OK)
             
+            except stripe.error.CardError as e:
+
+                return Response({"message" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    
+            except stripe.error.StripeError as e:
+                return Response({"message" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
             except Exception as e:
                 return Response({"message" : str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-        
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+class PaymentWebHook(APIView):
+
+    @csrf_exempt
+    def dispatch(self, request, *args, **kwargs):
+        return super().dispatch(request, *args, **kwargs)
+
+
+    def post(self, request:Request, *args, **kwargs):
+
+        payload = request.body
+
+        endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+        sig_header = request.headers.get("stripe-signature")
+
+        try:
+            event = stripe.Webhook.construct_event(
+                payload, sig_header, endpoint_secret, tolerance=500000
+            )
+
+            if event.type == "charge.succeeded":
+                
+                _object  = request.data.get("data").get("object")
+                
+                customer_id = _object.get("customer")
+
+                amount = int(_object.get("amount")) / 100
+
+                currency = _object.get("currency")
+
+
+                conversion_rate = get_conversion_rate("GBP", str(currency).upper())
+
+                _converted_pounds = amount / conversion_rate
+
+                user_twgos = _converted_pounds / 20
+
+                customer = stripe.Customer.retrieve(customer_id)
+
+                user = fetchone(User, email=customer.email)
+
+                fund_model = fetchone(Funds, user=user)
+
+                print(fund_model)
+
+                if fund_model ==  None:
+                    new_fund = Funds(user=user, total_balance = round(user_twgos))
+
+                    new_fund.save()
+
+                else:
+                    fund_model.total_balance += round(user_twgos)
+
+                    fund_model.save()
+
+            return Response({"message" : "Payment COnfirmed"}, status=status.HTTP_200_OK)
+        
+        except ValueError as e:
+            print(str(e))
+            
+            print()
+            return Response({"message" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        except stripe.error.SignatureVerificationError as e:
+            print(str(e))
+
+            print()
+
+
+            return Response({"message" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        
+        except Exception as e:
+            print(str(e))
+
+            print()
+
+
+            return Response({"message" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        
+
+
 
         
