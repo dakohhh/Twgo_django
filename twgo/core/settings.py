@@ -35,7 +35,7 @@ JWT_SECRET = os.getenv("TWGO_JWT_SECRET")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['twgoapp.com', 'localhost', "127.0.0.1", "e955-197-149-92-226.ngrok-free.app"]
+ALLOWED_HOSTS = ['twgoapp.com', 'localhost', "127.0.0.1", "e955-197-149-92-226.ngrok-free.app", "9044-129-205-124-236.ngrok-free.app"]
 
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False

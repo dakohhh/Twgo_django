@@ -29,6 +29,9 @@ class ProjectSerializer(serializers.ModelSerializer):
         model = Project
         fields = '__all__'
 
+    
+
+
 
 class FundsSerializer(serializers.ModelSerializer):
     class Meta:
@@ -150,3 +153,8 @@ class PaymentWithCardSerializer(serializers.Serializer):
     card_cvc = serializers.IntegerField(required=True)
     currency = serializers.CharField(default="usd")
     amount = serializers.IntegerField(required=True)
+
+
+class UpdateDeliveryDateSerializer(serializers.Serializer):
+
+    new_delivery_date = serializers.DateTimeField(required=True, format="%Y-%m-%d")

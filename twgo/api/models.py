@@ -1,3 +1,4 @@
+from datetime import datetime
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from django.db import models
@@ -8,6 +9,12 @@ from django_rest_passwordreset.signals import reset_password_token_created
 from django.core.mail import send_mail
 from django.core.mail import EmailMessage
 from django.urls import reverse
+from django.utils import timezone
+from django.core.exceptions import ValidationError
+
+from rest_framework import serializers
+
+
 
 from rest_framework.request import Request
 
@@ -103,17 +110,30 @@ class Project(models.Model):
     category = models.CharField(max_length=255)
     budget = models.CharField(max_length=255)
     service_type = models.CharField(max_length=255)
-    delivery_date = models.CharField(max_length=255)
+    delivery_date = models.DateField()
     user = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='projects_as_user')
     admin = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     status = models.CharField(
         max_length=10, choices=STATUS_CHOICES, default='pending')
 
+    
+
+    def validate_delivery_date(self, value):
+
+        if type(value) == str:
+            value = datetime.strptime(value, "%Y-%m-%d").date()
+
+        if value < timezone.now().date():
+            raise serializers.ValidationError({"delivery_date": ["Delivery date cannot be in the past."]})
+    
     def save(self, *args, **kwargs):
         is_new_project = self._state.adding  # Check if it's a new project
 
+        self.validate_delivery_date(self.delivery_date)
+
         super().save(*args, **kwargs)  # Call the original save method
+
 
         if is_new_project:
             admins = User.objects.filter(

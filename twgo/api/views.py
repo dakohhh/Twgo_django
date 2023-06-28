@@ -16,9 +16,20 @@ from .models import *
 from . import serializer as user_serializer
 from . import services, authentication
 
+from .utils import fetchone, generate_hex
+import random
+from django.contrib.auth.hashers import make_password, check_password
 from firebase_admin import messaging
+import stripe
+from django.views.decorators.csrf import csrf_exempt
+from .utils import get_conversion_rate
+from decimal import Decimal
+
 from rest_framework.permissions import IsAuthenticated 
 from dotenv import load_dotenv
+
+
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 load_dotenv()
 
@@ -183,6 +194,8 @@ class ProjectCreateView(generics.CreateAPIView):
         project = serializer.save(user=self.request.user, status='pending')
         project.admin = None
         project.save()
+
+ 
 
 
 class UserProjectHistoryView(APIView):
@@ -584,9 +597,6 @@ class ChangePasswordView(generics.UpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-from .utils import fetchone, generate_hex
-import random
-from django.contrib.auth.hashers import make_password, check_password
 
 class RequestOTPPasswordResetView(APIView):
 
@@ -600,10 +610,12 @@ class RequestOTPPasswordResetView(APIView):
 
             email =  serializer.data.get("email")
 
+            print(email)
+
             user = fetchone(User, email=email)
 
             if user == None:
-                return Response({'message': 'User not found'}, status=400)
+                return Response({'message': 'User not found'}, status=status.HTTP_400_BAD_REQUEST)
 
 
             otp = random.randint(1000, 9999)
@@ -655,11 +667,11 @@ class ValidateOTP(APIView):
             otp_klass = fetchone(OTP, user_id=fetchone(User, email=email))
 
             if otp_klass is None:
-                return Response({"message": "User did not request otp"}, status=400)
+                return Response({"message": "User did not request otp"}, status=status.HTTP_400_BAD_REQUEST)
 
             if not check_password(serializer.data.get("otp"), otp_klass.otp):
 
-                return Response({"message":"Invalid OTP"}, status=400)
+                return Response({"message":"Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST)
 
 
             return Response({"message": "OTP Verified", "data": otp_klass.key})
@@ -677,7 +689,7 @@ class UpdatePasswordFromReset(APIView):
             otp_klass = fetchone(OTP, key=serializer.data.get("token"))
 
             if otp_klass is None:
-                return Response({"message": "Invalid Token"}, status=400)
+                return Response({"message": "Invalid Token"}, status=status.HTTP_400_BAD_REQUEST)
 
             user:User = otp_klass.user
 
@@ -693,10 +705,6 @@ class UpdatePasswordFromReset(APIView):
 
 
 
-import stripe
-from django.views.decorators.csrf import csrf_exempt
-from .utils import get_conversion_rate
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 
 
@@ -783,7 +791,6 @@ class PaymentWithCard(APIView):
 
 
 
-
 class PaymentWebHook(APIView):
 
     @csrf_exempt
@@ -814,7 +821,6 @@ class PaymentWebHook(APIView):
 
                 currency = _object.get("currency")
 
-
                 conversion_rate = get_conversion_rate("GBP", str(currency).upper())
 
                 _converted_pounds = amount / conversion_rate
@@ -823,34 +829,34 @@ class PaymentWebHook(APIView):
 
                 customer = stripe.Customer.retrieve(customer_id)
 
+
                 user = fetchone(User, email=customer.email)
 
-                fund_model = fetchone(Funds, user=user)
 
-                print(fund_model)
+                fund_model = fetchone(Funds, user_id=user.id)
 
-                if fund_model ==  None:
+                print(fund_model.user)
+
+                if fund_model is  None:
                     new_fund = Funds(user=user, total_balance = round(user_twgos))
 
                     new_fund.save()
 
                 else:
-                    fund_model.total_balance += round(user_twgos)
+                    fund_model.total_balance = fund_model.total_balance + Decimal(round(user_twgos, 2))
 
                     fund_model.save()
 
             return Response({"message" : "Payment COnfirmed"}, status=status.HTTP_200_OK)
         
         except ValueError as e:
+
             print(str(e))
             
-            print()
             return Response({"message" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
         
         except stripe.error.SignatureVerificationError as e:
             print(str(e))
-
-            print()
 
 
             return Response({"message" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -858,13 +864,37 @@ class PaymentWebHook(APIView):
         except Exception as e:
             print(str(e))
 
-            print()
-
 
             return Response({"message" : str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         
 
+class UpdateDeliveryDate(APIView):
 
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def put(self, request:Request, project_id, *args, **kwargs):
+
+        serializer = user_serializer.UpdateDeliveryDateSerializer(data=request.data)
+
+        if serializer.is_valid():
 
         
+            project:Project = fetchone(Project, id=project_id)
+
+            if project is None:
+                return Response({"message" : "Project Not Found"}, status=status.HTTP_404_NOT_FOUND)
+            
+            if project.user != request.user:
+
+                return Response({"message" : "User does not have right to this project"}, status=status.HTTP_403_FORBIDDEN)
+            
+            project.delivery_date = serializer.data.get("new_delivery_date")
+
+            project.save()
+
+            return Response({"message": "Project Delivery Date Updated"}, status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)            
+

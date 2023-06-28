@@ -3,12 +3,12 @@ import secrets
 
 from typing import Type, Union
 from django.db.models import Model
-from .models import OTP, User, Funds
+from .models import OTP, User, Funds, Project
 
 
 
 
-def fetchone(klass:Type[Union[Model, User, OTP, Funds]], *args, **kwargs) -> Union[User, OTP, Funds, None]:
+def fetchone(klass:Type[Union[Model, User, OTP, Funds, Project]], *args, **kwargs) -> Union[User, OTP, Funds, Project, None]:
     try:
         return klass.objects.get(*args, **kwargs)
     except klass.DoesNotExist:

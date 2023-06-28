@@ -79,7 +79,9 @@ urlpatterns = [
 
      path("pay-with-card/", PaymentWithCard.as_view(), name="pay-with-card"),
 
-     path("payment-webhook/", PaymentWebHook.as_view(), name="payment-webhook")
+     path("payment-webhook/", PaymentWebHook.as_view(), name="payment-webhook"),
+
+     path("update-delivery_date/<int:project_id>/", UpdateDeliveryDate.as_view(), name="update-delivery_date"),
 
 
 ]
