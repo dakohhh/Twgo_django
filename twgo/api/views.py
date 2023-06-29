@@ -16,7 +16,7 @@ from .models import *
 from . import serializer as user_serializer
 from . import services, authentication
 
-from .utils import fetchone, generate_hex
+from .utils import fetchone, generate_hex, fetch_filter
 import random
 from django.contrib.auth.hashers import make_password, check_password
 from firebase_admin import messaging
@@ -896,5 +896,44 @@ class UpdateDeliveryDate(APIView):
 
             return Response({"message": "Project Delivery Date Updated"}, status.HTTP_200_OK)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)            
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+from datetime import datetime, timedelta
+from django.utils import timezone
+
+class SuperUserStats(APIView):
+
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request:Request, *args, **kwargs):
+       
+       if not request.user.is_superuser:
+            
+            return Response({"message": "Only super admins are allowed to access Route"}, status.HTTP_403_FORBIDDEN)
+       
+       stats = {}
+       
+
+       threshold = timezone.now() - timedelta(hours=24)
+
+       number_of_users_in_last_24 = fetch_filter(User, date_joined__gte=threshold)
+
+       total_number_users = fetch_filter(User)
+
+       total_number_active_users = fetch_filter(User, is_active=True)
+
+
+       stats["number_of_users_in_last_24"] = number_of_users_in_last_24.count()
+
+       stats["number_of_new_users"] = number_of_users_in_last_24.count()
+
+       stats["total_number_users"] = total_number_users.count()
+       
+       stats["total_number_active_users"] = total_number_active_users.count()
+       
+           
+
+       return Response({"message": "Get Stats Successfully", "data":stats}, status.HTTP_200_OK)
 

@@ -1,9 +1,10 @@
 import requests
 import secrets
-
 from typing import Type, Union
 from django.db.models import Model
 from .models import OTP, User, Funds, Project
+from django.db.models.query import QuerySet
+
 
 
 
@@ -15,7 +16,17 @@ def fetchone(klass:Type[Union[Model, User, OTP, Funds, Project]], *args, **kwarg
         return None
     except Exception as e:
         raise e
-    
+
+
+
+
+def fetch_filter(klass:Type[Union[Model, User, OTP, Funds, Project]], *args, **kwargs) -> Union[QuerySet, None]:
+    try:
+        return klass.objects.filter(*args, **kwargs)
+    except klass.DoesNotExist:
+        return None
+    except Exception as e:
+        raise e
 
 
 

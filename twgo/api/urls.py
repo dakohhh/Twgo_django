@@ -84,4 +84,7 @@ urlpatterns = [
      path("update-delivery_date/<int:project_id>/", UpdateDeliveryDate.as_view(), name="update-delivery_date"),
 
 
+     path("superadmin/stats/", SuperUserStats.as_view(), name="superadmin-stats"),
+
+
 ]
