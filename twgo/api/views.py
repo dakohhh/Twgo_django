@@ -606,11 +606,7 @@ class RequestOTPPasswordResetView(APIView):
 
         if serializer.is_valid():
 
-            print(serializer.data.get("email"))
-
             email =  serializer.data.get("email")
-
-            print(email)
 
             user = fetchone(User, email=email)
 
@@ -641,8 +637,8 @@ class RequestOTPPasswordResetView(APIView):
             
             send_mail(
                 'Password Reset OTP For Twgo User',
-                f'Your OTP: {otp}',
-                settings.EMAIL_HOST,
+                f'Hey {user.first_name}, you have requested for a password reset.\nYour OTP: {otp}',
+                settings.DEFAULT_FROM_EMAIL,
                 [email],
                 fail_silently=False,
             )

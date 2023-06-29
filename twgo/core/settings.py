@@ -169,7 +169,7 @@ EMAIL_HOST = os.getenv("MAIL_HOST")
 
 EMAIL_PORT =os.getenv("MAIL_PORT")
 
-EMAIL_USE_TLS = True
+EMAIL_USE_TLS = False
 
 EMAIL_HOST_USER = os.getenv("MAIL_USERNAME")
 
