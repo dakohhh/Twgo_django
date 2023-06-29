@@ -1,7 +1,6 @@
 import os
 import json
 import requests
-from firebase_admin import auth
 from django.http import JsonResponse
 from django.views import View
 from django.db.models import F
@@ -19,7 +18,6 @@ from . import services, authentication
 from .utils import fetchone, generate_hex, fetch_filter
 import random
 from django.contrib.auth.hashers import make_password, check_password
-from firebase_admin import messaging
 import stripe
 from django.views.decorators.csrf import csrf_exempt
 from .utils import get_conversion_rate
@@ -510,28 +508,28 @@ class MessageCreateView(generics.CreateAPIView):
         recipient = recipient_conversation.get_other_participant(
             self.request.user)
         recipient_uid = recipient.id  # Assuming the recipient user has a "uid" field
-        user = auth.get_user_by_email(recipient_uid)
-        # Assuming the recipient user has a "messaging_token" field for the Firebase token
-        token = user.tokens.get('firebasetoken')
+#         user = auth.get_user_by_email(recipient_uid)
+#         # Assuming the recipient user has a "messaging_token" field for the Firebase token
+#         token = user.tokens.get('firebasetoken')
 
-        # Send FCM notification to the recipient
-        send_fcm_notification(token, recipient.first_name,
-                              serializer.validated_data['content'])
+#         # Send FCM notification to the recipient
+#         send_fcm_notification(token, recipient.first_name,
+#                               serializer.validated_data['content'])
 
 
-def send_fcm_notification(token, title, body):
-    # Construct the message payload
-    message = messaging.Message(
-        token=token,
-        notification=messaging.Notification(
-            title=title,
-            body=body,
-        ),
-    )
+# def send_fcm_notification(token, title, body):
+#     # Construct the message payload
+#     message = messaging.Message(
+#         token=token,
+#         notification=messaging.Notification(
+#             title=title,
+#             body=body,
+#         ),
+#     )
 
-    # Send the message to the FCM server
-    response = messaging.send(message)
-    print('Successfully sent FCM notification:', response)
+#     # Send the message to the FCM server
+#     response = messaging.send(message)
+#     print('Successfully sent FCM notification:', response)
 
 
 class MessageListView(generics.ListAPIView):
