@@ -86,5 +86,7 @@ urlpatterns = [
 
      path("superadmin/stats/", SuperUserStats.as_view(), name="superadmin-stats"),
 
+     path("superadmin/admin_stats/", SuperUserAdminStatsAPIView.as_view(), name="superadmin-admin-stats"),
+
 
 ]

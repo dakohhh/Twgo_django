@@ -96,6 +96,17 @@ class User(auth_models.AbstractUser):
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name",
                        "phone_number", "nationality", "gender"]
+    
+
+    def to_dcit(self):
+        return {
+            "first_name":self.first_name, 
+            "last_name":self.last_name, 
+            "email":self.email, 
+            "phone_number": self.phone_number,
+            "nationality": self.nationality, 
+            "gender": self.gender
+        }
 
 
 class Project(models.Model):

@@ -26,6 +26,8 @@ from decimal import Decimal
 from rest_framework.permissions import IsAuthenticated 
 from dotenv import load_dotenv
 
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
@@ -893,8 +895,7 @@ class UpdateDeliveryDate(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-from datetime import datetime, timedelta
-from django.utils import timezone
+
 
 class SuperUserStats(APIView):
 
@@ -929,5 +930,51 @@ class SuperUserStats(APIView):
        
            
 
-       return Response({"message": "Get Stats Successfully", "data":stats}, status.HTTP_200_OK)
+       return Response({"message": "Get User Stats Successfully", "data":stats}, status.HTTP_200_OK)
 
+
+from django.db.models import Count, Q
+
+
+class SuperUserAdminStatsAPIView(APIView):
+
+    authentication_classes = (authentication.CustomUserAuthentication,)
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get(self, request:Request, *args, **kwargs):
+
+        if not request.user.is_superuser:
+            
+            return Response({"message": "Only super admins are allowed to access Route"}, status.HTTP_403_FORBIDDEN)
+        
+
+        data = []
+            
+        
+        for admin in fetch_filter(User, is_staff=True, is_superuser=False):
+
+            info = {}
+            
+            admin_projects = fetch_filter(Project, admin=admin, status="accepted")
+
+            admin_messages_sent  = fetch_filter(Message, sender=admin, sender__is_staff=True).annotate(total_messages_sent=Count('id'))
+
+            admin_messages_received = fetch_filter(Message, sender=admin, conversation__participants__in=User.objects.filter(is_staff=True)).values().annotate(total_messages_received=Count('conversation__participants', distinct=True) - 1)
+    
+
+            info["first_name"] = admin.first_name
+            info["last_name"] = admin.last_name
+            info["email"] = admin.email
+
+            info["number_of_project_accepted"] = admin_projects.count()
+            info["number_of_messages_sent"] = admin_messages_sent.count()
+            info["number_of_messages_recieved"] = 0 if  admin_messages_received.first() is None else admin_messages_received.first().get("total_messages_received")
+
+            data.append(info)
+
+
+
+
+            
+        return Response({"message": "Get Admin Stats Successfully", "data":data}, status.HTTP_200_OK)
+        
